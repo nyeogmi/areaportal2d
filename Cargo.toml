@@ -2,7 +2,7 @@
 name = "areaportal2d"
 version = "0.1.0"
 authors = ["Nyeogmi <economicsgmail@gmail.com>"]
-description = "visibility tools and areaportals for a partially-loaded world"
+description = "data structures for worlds with area portals"
 readme = "README.md"
 homepage = "https://github.com/nyeogmi/areaportal2d"
 repository = "https://github.com/nyeogmi/areaportal2d"
