@@ -1,6 +1,6 @@
 use std::isize;
 
-use euclid::{Point2D, point2};
+use euclid::{Point2D, Rect, Size2D, Vector2D, point2};
 use moogle::Id;
 
 use crate::{Cardinal, egocentric::Egocentric, universe::RTRoom};
@@ -20,6 +20,13 @@ pub struct GlobalPoint {
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniverseSpace;
+
+pub struct EgoSpace;
+
+pub type EgoPoint = Point2D<isize, EgoSpace>;
+pub type EgoSize = Size2D<isize, EgoSpace>;
+pub type EgoVec = Vector2D<isize, EgoSpace>;
+pub type EgoRect = Rect<isize, EgoSpace>;
 
 impl moogle::IdLike for GlobalView {
     fn id_min_value() -> Self {

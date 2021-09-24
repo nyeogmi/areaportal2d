@@ -1,8 +1,10 @@
 mod cardinal;
 mod egocentric;
+mod egosphere;
 mod geom;
 mod portals;
 mod universe;
+// mod vision;
 
 pub use geom::*;
 

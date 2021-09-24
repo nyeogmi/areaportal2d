@@ -1,6 +1,6 @@
 use moogle::*;
 
-use crate::{GlobalPoint, GlobalView, cardinal::Cardinal, egocentric::{self, Egocentric}};
+use crate::{EgoVec, GlobalView, egocentric::{Egocentric}};
 
 pub(crate) struct Portals {
     traps: RawToOne<GlobalView, GlobalView>,
@@ -54,11 +54,37 @@ impl Portals {
         }
     }
 
-    fn step(&self, src: GlobalView, ego: Egocentric) -> GlobalView {
+    pub fn step_offset(&self, src: GlobalView, ego: EgoVec) -> GlobalView {
+        assert!((-1..=1).contains(&ego.x));
+        assert!((-1..=1).contains(&ego.y));
+
+        if ego.x == 0 && ego.y == 0 {
+            return src;
+        }
+
+        if ego.x != 0 && ego.y != 0 {
+            // don't ever use portals
+            return GlobalView { 
+                r: src.r,
+                x: src.x + src.c.rotate_vec(ego).cast_unit(),
+                c: src.c,
+            }
+        }
+
+        self.step_directional(src, match (ego.x, ego.y) {
+            (0, -1) => Egocentric::Forward,
+            (1, 0) => Egocentric::Right,
+            (0, 1) => Egocentric::Backward,
+            (-1, 0) => Egocentric::Left,
+            _ => unreachable!(),
+        })
+    }
+
+    pub fn step_directional(&self, src: GlobalView, ego: Egocentric) -> GlobalView {
         self.step_forward(src.rotated(ego)).rotated(ego.reverse())
     }
 
-    fn step_forward(&self, src: GlobalView) -> GlobalView {
+    pub fn step_forward(&self, src: GlobalView) -> GlobalView {
         let dst_normal = GlobalView { 
             r: src.r,
             x: src.x + src.c.offset(),
