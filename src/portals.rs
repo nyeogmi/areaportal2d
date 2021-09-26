@@ -2,20 +2,20 @@ use moogle::*;
 
 use crate::{EgoVec, GlobalView, egocentric::{Egocentric}};
 
-pub(crate) struct Portals {
-    traps: RawToOne<GlobalView, GlobalView>,
+pub struct Portals<R: IdLike> {
+    traps: RawToOne<GlobalView<R>, GlobalView<R>>,
 }
 
 
 #[derive(Clone, Copy)]
-pub struct AreaPortal {
-    src: GlobalView,
-    dst: GlobalView,
+pub struct AreaPortal<R> {
+    src: GlobalView<R>,
+    dst: GlobalView<R>,
     size: isize,  // C# comment said: "NOTE: Ignored for any areaportal that is already reified"
 }
 
-impl AreaPortal {
-    fn reverse(&self) -> AreaPortal {
+impl<R: IdLike> AreaPortal<R> {
+    fn reverse(&self) -> AreaPortal<R> {
         AreaPortal {
             src: GlobalView {
                 r: self.dst.r,
@@ -32,14 +32,14 @@ impl AreaPortal {
     }
 }
 
-impl Portals {
-    fn add_area_portal(&mut self, ap: AreaPortal) {
+impl<R: IdLike> Portals<R> {
+    fn add_area_portal(&mut self, ap: AreaPortal<R>) {
         // NYEO NOTE: This function was unused in C#
         self.add_one_way_area_portal(ap);
         self.add_one_way_area_portal(ap.reverse());
     }
 
-    fn add_one_way_area_portal(&mut self, ap: AreaPortal) {
+    fn add_one_way_area_portal(&mut self, ap: AreaPortal<R>) {
         let src_fwd = ap.src.c;
         let dst_fwd = ap.dst.c;
 
@@ -54,7 +54,7 @@ impl Portals {
         }
     }
 
-    pub fn step_offset(&self, src: GlobalView, ego: EgoVec) -> GlobalView {
+    pub fn step_offset(&self, src: GlobalView<R>, ego: EgoVec) -> GlobalView<R> {
         assert!((-1..=1).contains(&ego.x));
         assert!((-1..=1).contains(&ego.y));
 
@@ -80,11 +80,11 @@ impl Portals {
         })
     }
 
-    pub fn step_directional(&self, src: GlobalView, ego: Egocentric) -> GlobalView {
+    pub fn step_directional(&self, src: GlobalView<R>, ego: Egocentric) -> GlobalView<R> {
         self.step_forward(src.rotated(ego)).rotated(ego.reverse())
     }
 
-    pub fn step_forward(&self, src: GlobalView) -> GlobalView {
+    pub fn step_forward(&self, src: GlobalView<R>) -> GlobalView<R> {
         let dst_normal = GlobalView { 
             r: src.r,
             x: src.x + src.c.offset(),
