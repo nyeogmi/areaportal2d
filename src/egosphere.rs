@@ -4,30 +4,23 @@ use euclid::{point2, rect, vec2};
 use gridd_euclid::Grid;
 use moogle::IdLike;
 
-use crate::{EgoPoint, EgoRect, EgoSpace, EgoVec, GlobalView, portals::Portals};
-
-// TODO: Refuse to construct this unless the observer is, in fact, in the rectangle
-#[derive(Clone, Copy)]
-pub struct EgoWindow<R: IdLike> {
-    rect: EgoRect,
-    observer_in_rect: EgoPoint,
-    observer: GlobalView<R>,
-}
+use crate::{EgoPoint, EgoRect, EgoSpace, EgoVec, GlobalView, Viewport, portals::Portals};
 
 pub struct Egosphere<R: IdLike> {
-    // TODO: Don't use Options in the future
+    // TODO: Don't use Options in the future?
     global: Grid<Option<GlobalView<R>>, EgoSpace>,
     basis: Grid<Option<EgoPoint>, EgoSpace>,
     dirty_global: Grid<u64, EgoSpace>,
     dirty_basis: Grid<u64, EgoSpace>,
     dirty_token: u64,
     fov: Grid<u64, EgoSpace>,  // if less than dirty token, then not visible this round
+    fullbright: bool,
 
     explore: VecDeque<EgoPoint>,
 }
 
 impl<R: IdLike> Egosphere<R> {
-    pub fn new() -> Egosphere<R> {
+    pub fn new(fullbright: bool) -> Egosphere<R> {
         let zero = rect(0, 0, 0, 0);
         Egosphere {
             global: Grid::new(zero, || unreachable!()),
@@ -36,8 +29,17 @@ impl<R: IdLike> Egosphere<R> {
             dirty_basis: Grid::new(zero, ||unreachable!()),
             dirty_token: 0,
             fov: Grid::new(zero, ||unreachable!()),
+            fullbright,
             explore: VecDeque::new(),
         }
+    }
+
+    pub fn calculate(&mut self, viewport: Viewport<R>, portals: Portals<R>, blocked: impl Fn(GlobalView<R>) -> bool) {
+        self.resize(viewport.rect);
+        self.dirty_token += 1;
+
+        self.calculate_globalmap(viewport, portals);
+        self.calculate_fov(viewport, blocked);
     }
 
     fn resize(&mut self, rect: EgoRect) {
@@ -52,19 +54,11 @@ impl<R: IdLike> Egosphere<R> {
         self.fov.resize(rect, || tok);
     }
 
-    pub fn calculate(&mut self, window: EgoWindow<R>, portals: Portals<R>, blocked: impl Fn(GlobalView<R>) -> bool) {
-        self.resize(window.rect);
-        self.dirty_token += 1;
-
-        self.calculate_globalmap(window, portals);
-        self.calculate_fov(window, blocked);
-    }
-
-    fn calculate_globalmap(&mut self, window: EgoWindow<R>, portals: Portals<R>) {
+    fn calculate_globalmap(&mut self, viewport: Viewport<R>, portals: Portals<R>) {
         self.explore.clear();
 
-        let view = window.observer_in_rect;
-        self.global.set(view, Some(window.observer));
+        let view = viewport.observer_in_rect;
+        self.global.set(view, Some(viewport.observer));
 
         // == starting point ==
         self.enqueue_prio(view, vec2(0, 0));
@@ -111,17 +105,23 @@ impl<R: IdLike> Egosphere<R> {
         }
     }
 
-    fn calculate_fov(&mut self, window: EgoWindow<R>, blocked: impl Fn(GlobalView<R>) -> bool) {  
+    fn calculate_fov(&mut self, viewport: Viewport<R>, blocked: impl Fn(GlobalView<R>) -> bool) {  
+        if self.fullbright { return; }
+
         let mut fov_tmp = Grid::new(rect(0, 0, 0, 0), || unreachable!()); 
         std::mem::swap(&mut self.fov, &mut fov_tmp);
         symmetric_shadowcasting::compute_fov(
-            (window.observer_in_rect.x, window.observer_in_rect.y), 
+            (viewport.observer_in_rect.x, viewport.observer_in_rect.y), 
             &mut |(x, y)| { 
-                if let Some(glob) = self.at(point2(x, y)) { blocked(glob) } else { true }
+                let v = point2(x, y);
+                if let Some(p) = self.at_fullbright(v) {
+                    return blocked(p)
+                }
+                true
             }, 
             &mut |(x, y)| {
                 let p = point2(x, y);
-                if window.rect.contains(p) {
+                if viewport.rect.contains(p) {
                     fov_tmp.set(p, self.dirty_token)
                 }
             }
@@ -130,13 +130,33 @@ impl<R: IdLike> Egosphere<R> {
     }
 
     pub fn at(&self, v: EgoPoint) -> Option<GlobalView<R>> {
+        if self.fullbright {
+            return self.at_fullbright(v)
+        }
+        return self.at_fov(v)
+    }
+
+    fn at_fullbright(&self, v: EgoPoint) -> Option<GlobalView<R>> {
+        // ignore FOV
         if let Some(Some(p)) = self.global.get(v) {
             if let Some(&tok) = self.dirty_basis.get(v) {
                 if tok == self.dirty_token {
-                    return Some(*p)
+                    return Some(*p);
                 }
             }
         }
-        return None
+        None
+    }
+
+    fn at_fov(&self, v: EgoPoint) -> Option<GlobalView<R>> {
+        // ignore FOV
+        if let Some(&fov_tok) = self.fov.get(v) {
+            if fov_tok == self.dirty_token {
+                if let Some(v) = self.at_fullbright(v) {
+                    return Some(v);
+                }
+            }
+        }
+        None
     }
 }
