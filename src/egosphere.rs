@@ -14,7 +14,7 @@ pub struct Egosphere<R: IdLike> {
     dirty_basis: Grid<u64, EgoSpace>,
     dirty_token: u64,
     fov: Grid<u64, EgoSpace>,  // if less than dirty token, then not visible this round
-    fullbright: bool,
+    fullbright: bool,  // if set, don't check fov at all
 
     explore: VecDeque<EgoPoint>,
 }
