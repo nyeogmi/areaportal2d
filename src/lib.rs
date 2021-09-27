@@ -5,9 +5,15 @@ mod geom;
 mod portals;
 // mod vision;
 
-pub use geom::*;
+pub use geom::{
+    GlobalView, GlobalPoint,
+    EgoPoint, EgoRect, EgoSize, EgoSpace, EgoVec
+};
 
-pub(crate) use cardinal::Cardinal;
+pub use cardinal::Cardinal;
+pub use egocentric::Egocentric;
+pub use egosphere::{EgoWindow, Egosphere};
+pub use portals::Portals;
 
 #[cfg(test)]
 mod tests {

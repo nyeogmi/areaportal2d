@@ -52,16 +52,15 @@ impl<R: IdLike> Egosphere<R> {
         self.fov.resize(rect, || tok);
     }
 
-    pub fn calculate(&mut self, window: EgoWindow<R>, portals: Portals<R>, mut blocked: impl Fn(GlobalView<R>) -> bool) {
+    pub fn calculate(&mut self, window: EgoWindow<R>, portals: Portals<R>, blocked: impl Fn(GlobalView<R>) -> bool) {
         self.resize(window.rect);
         self.dirty_token += 1;
 
-        // &mut: weird type expectations from shadowcasting library
-        self.calculate_identity(window, portals, &mut blocked);
-        self.calculate_fov(window, &mut blocked);
+        self.calculate_globalmap(window, portals);
+        self.calculate_fov(window, blocked);
     }
 
-    fn calculate_identity(&mut self, window: EgoWindow<R>, portals: Portals<R>, blocked: &mut impl Fn(GlobalView<R>) -> bool) {
+    fn calculate_globalmap(&mut self, window: EgoWindow<R>, portals: Portals<R>) {
         self.explore.clear();
 
         let view = window.observer_in_rect;
@@ -112,7 +111,7 @@ impl<R: IdLike> Egosphere<R> {
         }
     }
 
-    fn calculate_fov(&mut self, window: EgoWindow<R>, blocked: &mut impl Fn(GlobalView<R>) -> bool) {  
+    fn calculate_fov(&mut self, window: EgoWindow<R>, blocked: impl Fn(GlobalView<R>) -> bool) {  
         let mut fov_tmp = Grid::new(rect(0, 0, 0, 0), || unreachable!()); 
         std::mem::swap(&mut self.fov, &mut fov_tmp);
         symmetric_shadowcasting::compute_fov(

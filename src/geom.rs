@@ -8,18 +8,18 @@ use crate::{Cardinal, egocentric::Egocentric};
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct GlobalView<R> {
     pub r: Id<R>,
-    pub x: Point2D<isize, UniverseSpace>,
+    pub x: Point2D<isize, GlobalSpace>,
     pub c: Cardinal,
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct GlobalPoint<R> {
     pub r: Id<R>,
-    pub x: Point2D<isize, UniverseSpace>,
+    pub x: Point2D<isize, GlobalSpace>,
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct UniverseSpace;
+pub struct GlobalSpace;
 
 pub struct EgoSpace;
 

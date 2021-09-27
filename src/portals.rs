@@ -3,15 +3,26 @@ use moogle::*;
 use crate::{EgoVec, GlobalView, egocentric::{Egocentric}};
 
 pub struct Portals<R: IdLike> {
-    traps: RawToOne<GlobalView<R>, GlobalView<R>>,
+    owner: RawManyToOne<GlobalView<R>, AreaPortal<R>>,
+    traps: RawOneToOne<GlobalView<R>, GlobalView<R>>,
 }
 
 
-#[derive(Clone, Copy)]
-pub struct AreaPortal<R> {
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AreaPortal<R: IdLike> {
     src: GlobalView<R>,
     dst: GlobalView<R>,
     size: isize,  // C# comment said: "NOTE: Ignored for any areaportal that is already reified"
+}
+
+impl<R: IdLike> IdLike for AreaPortal<R> {
+    fn id_min_value() -> Self {
+        AreaPortal { src: GlobalView::id_min_value(), dst: GlobalView::id_min_value(), size: isize::id_min_value() }
+    }
+
+    fn id_max_value() -> Self {
+        AreaPortal { src: GlobalView::id_max_value(), dst: GlobalView::id_max_value(), size: isize::id_max_value() }
+    }
 }
 
 impl<R: IdLike> AreaPortal<R> {
@@ -33,13 +44,30 @@ impl<R: IdLike> AreaPortal<R> {
 }
 
 impl<R: IdLike> Portals<R> {
-    fn add_area_portal(&mut self, ap: AreaPortal<R>) {
-        // NYEO NOTE: This function was unused in C#
-        self.add_one_way_area_portal(ap);
-        self.add_one_way_area_portal(ap.reverse());
+    pub fn add_area_portal(&mut self, ap: AreaPortal<R>) {
+        if self.owner.bwd().contains_key(ap) {
+            return; // already exists
+        }
+
+        self.remove_overlapping_portals(ap);
+        self.remove_overlapping_portals(ap.reverse());
+
+        self.actually_add_one_way_area_portal(ap);
+        self.actually_add_one_way_area_portal(ap.reverse());
     }
 
-    fn add_one_way_area_portal(&mut self, ap: AreaPortal<R>) {
+    pub fn remove_area_portal(&mut self, ap: AreaPortal<R>) {
+        for cell in self.owner.bwd().get(ap).iter() {
+            self.traps.mut_fwd().expunge(cell);
+            self.traps.mut_bwd().expunge(cell);
+        }
+        for cell in self.owner.bwd().get(ap.reverse()).iter() {
+            self.traps.mut_bwd().expunge(cell);
+        }
+        self.owner.mut_bwd().expunge(ap);
+    }
+
+    fn remove_overlapping_portals(&mut self, ap: AreaPortal<R>) {
         let src_fwd = ap.src.c;
         let dst_fwd = ap.dst.c;
 
@@ -47,10 +75,32 @@ impl<R: IdLike> Portals<R> {
             let src_xy = ap.src.x + src_fwd.right().offset_by(i) + src_fwd.offset();
             let dst_xy = ap.dst.x + dst_fwd.right().offset_by(i);
 
-            self.traps.mut_fwd().insert(
-                GlobalView { r: ap.src.r, x: src_xy, c: src_fwd },
-                GlobalView { r: ap.dst.r, x: dst_xy, c: dst_fwd },
-            );
+            let src = GlobalView { r: ap.src.r, x: src_xy, c: src_fwd };
+            let dst = GlobalView { r: ap.dst.r, x: dst_xy, c: dst_fwd };
+
+            if let Some(owner) = self.owner.fwd().get(src) {
+                self.remove_area_portal(owner)
+            }
+            if let Some(owner) = self.owner.fwd().get(dst) {
+                self.remove_area_portal(owner)
+            }
+        }
+    }
+
+    fn actually_add_one_way_area_portal(&mut self, ap: AreaPortal<R>) {
+        let src_fwd = ap.src.c;
+        let dst_fwd = ap.dst.c;
+
+        for i in 0..ap.size {
+            let src_xy = ap.src.x + src_fwd.right().offset_by(i) + src_fwd.offset();
+            let dst_xy = ap.dst.x + dst_fwd.right().offset_by(i);
+
+            let src = GlobalView { r: ap.src.r, x: src_xy, c: src_fwd };
+            let dst = GlobalView { r: ap.dst.r, x: dst_xy, c: dst_fwd };
+
+            self.traps.mut_fwd().insert(src, dst);
+            self.owner.mut_fwd().insert(src, ap);
+            self.owner.mut_fwd().insert(dst, ap);
         }
     }
 
