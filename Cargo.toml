@@ -1,7 +1,7 @@
 [package]
 name = "areaportal2d"
-version = "0.1.0"
-authors = ["Nyeogmi <economicsgmail@gmail.com>"]
+version = "0.1.1"
+authors = ["Nyeogmi <economicsbat@gmail.com>"]
 description = "data structures for worlds with area portals"
 readme = "README.md"
 homepage = "https://github.com/nyeogmi/areaportal2d"
