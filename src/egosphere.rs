@@ -34,7 +34,7 @@ impl<R: IdLike> Egosphere<R> {
         }
     }
 
-    pub fn calculate(&mut self, viewport: Viewport<R>, portals: Portals<R>, blocked: impl Fn(GlobalView<R>) -> bool) {
+    pub fn calculate(&mut self, viewport: Viewport<R>, portals: &Portals<R>, blocked: impl Fn(GlobalView<R>) -> bool) {
         self.resize(viewport.rect);
         self.dirty_token += 1;
 
@@ -54,7 +54,7 @@ impl<R: IdLike> Egosphere<R> {
         self.fov.resize(rect, || tok);
     }
 
-    fn calculate_globalmap(&mut self, viewport: Viewport<R>, portals: Portals<R>) {
+    fn calculate_globalmap(&mut self, viewport: Viewport<R>, portals: &Portals<R>) {
         self.explore.clear();
 
         let view = viewport.observer_in_rect;

@@ -67,6 +67,15 @@ impl Egocentric {
     pub const fn offset_by<U>(&self, sz: isize) -> Vector2D<isize, U> {
         self.rotate_vec(vec2(0, -sz))
     }
+
+    pub fn undo(&self) -> Egocentric {
+        match self {
+            Egocentric::Forward => Egocentric::Forward,
+            Egocentric::Right => Egocentric::Left,
+            Egocentric::Backward => Egocentric::Backward,
+            Egocentric::Left => Egocentric::Right,
+        }
+    }
 }
 
 impl IdLike for Egocentric {

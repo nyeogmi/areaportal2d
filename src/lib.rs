@@ -13,7 +13,7 @@ pub use geom::{
 pub use cardinal::Cardinal;
 pub use egocentric::Egocentric;
 pub use egosphere::Egosphere;
-pub use portals::Portals;
+pub use portals::{AreaPortal, Portals};
 pub use viewport::Viewport;
 
 #[cfg(test)]

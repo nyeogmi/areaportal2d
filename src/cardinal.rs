@@ -3,7 +3,7 @@ use moogle::IdLike;
 
 use crate::egocentric::Egocentric;
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Cardinal {
     North = 0,
     East = 1,

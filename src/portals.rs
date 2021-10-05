@@ -7,12 +7,21 @@ pub struct Portals<R: IdLike> {
     traps: RawOneToOne<GlobalView<R>, GlobalView<R>>,
 }
 
+impl<R: IdLike> Portals<R> {
+    pub fn new() -> Self {
+        Portals {
+            owner: RawManyToOne::new(),
+            traps: RawOneToOne::new(),
+        }
+    }
+}
+
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AreaPortal<R: IdLike> {
-    src: GlobalView<R>,
-    dst: GlobalView<R>,
-    size: isize,  // C# comment said: "NOTE: Ignored for any areaportal that is already reified"
+    pub src: GlobalView<R>,
+    pub dst: GlobalView<R>,
+    pub size: isize,  // C# comment said: "NOTE: Ignored for any areaportal that is already reified"
 }
 
 impl<R: IdLike> IdLike for AreaPortal<R> {
@@ -131,7 +140,7 @@ impl<R: IdLike> Portals<R> {
     }
 
     pub fn step_directional(&self, src: GlobalView<R>, ego: Egocentric) -> GlobalView<R> {
-        self.step_forward(src.rotated(ego)).rotated(ego.reverse())
+        self.step_forward(src.rotated(ego)).rotated(ego.undo())
     }
 
     pub fn step_forward(&self, src: GlobalView<R>) -> GlobalView<R> {
