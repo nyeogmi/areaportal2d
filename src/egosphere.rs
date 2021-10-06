@@ -1,22 +1,20 @@
-use std::collections::VecDeque;
-
 use euclid::{point2, rect, vec2};
 use gridd_euclid::Grid;
 use moogle::IdLike;
 
 use crate::{EgoPoint, EgoRect, EgoSpace, EgoVec, GlobalView, Viewport, portals::Portals};
 
+use std::collections::binary_heap::BinaryHeap;
+
 pub struct Egosphere<R: IdLike> {
     // TODO: Don't use Options in the future?
     global: Grid<Option<GlobalView<R>>, EgoSpace>,
-    basis: Grid<Option<EgoPoint>, EgoSpace>,
     dirty_global: Grid<u64, EgoSpace>,
-    dirty_basis: Grid<u64, EgoSpace>,
     dirty_token: u64,
     fov: Grid<u64, EgoSpace>,  // if less than dirty token, then not visible this round
     fullbright: bool,  // if set, don't check fov at all
 
-    explore: VecDeque<EgoPoint>,
+    explore: BinaryHeap<(isize, (isize, isize), (isize, isize))>,  
 }
 
 impl<R: IdLike> Egosphere<R> {
@@ -24,13 +22,11 @@ impl<R: IdLike> Egosphere<R> {
         let zero = rect(0, 0, 0, 0);
         Egosphere {
             global: Grid::new(zero, || unreachable!()),
-            basis: Grid::new(zero, ||unreachable!()),
             dirty_global: Grid::new(zero, ||unreachable!()),
-            dirty_basis: Grid::new(zero, ||unreachable!()),
             dirty_token: 0,
             fov: Grid::new(zero, ||unreachable!()),
             fullbright,
-            explore: VecDeque::new(),
+            explore: BinaryHeap::new(),
         }
     }
 
@@ -38,7 +34,7 @@ impl<R: IdLike> Egosphere<R> {
         self.resize(viewport.rect);
         self.dirty_token += 1;
 
-        self.calculate_globalmap(viewport, portals);
+        self.calculate_globalmap(viewport, portals, |x| blocked(x));
         self.calculate_fov(viewport, blocked);
     }
 
@@ -46,63 +42,53 @@ impl<R: IdLike> Egosphere<R> {
         if self.global.rect() == rect { return; }
         
         self.global.resize(rect, || None);
-        self.basis.resize(rect, || None);
         let tok = self.dirty_token;
         self.dirty_global.resize(rect, || tok);
-        self.dirty_basis.resize(rect, || tok);
 
         self.fov.resize(rect, || tok);
     }
 
-    fn calculate_globalmap(&mut self, viewport: Viewport<R>, portals: &Portals<R>) {
+    fn calculate_globalmap(&mut self, viewport: Viewport<R>, portals: &Portals<R>, blocked: impl Fn(GlobalView<R>) -> bool) {
         self.explore.clear();
 
         let view = viewport.observer_in_rect;
         self.global.set(view, Some(viewport.observer));
 
         // == starting point ==
-        self.enqueue_prio(view, vec2(0, 0));
+        self.enqueue(0, view, vec2(0, 0));
 
         // == dijkstra away from the starting point ==
-        while let Some(v) = self.explore.pop_front() {
-            if self.dirty_global.get(v).unwrap() == &self.dirty_token { continue; }
+        while let Some((cost, (dst_x, dst_y), (src_x, src_y))) = self.explore.pop() {
+            let src: EgoPoint = point2(src_x, src_y);
+            let dst: EgoPoint = point2(dst_x, dst_y);
 
-            let basis = self.basis.get(v).unwrap().unwrap();
-            let previous = self.global.get(basis).unwrap().unwrap();
-            let real: GlobalView<R> = portals.step_offset(previous, v - basis);
+            if self.dirty_global.get(dst).unwrap() == &self.dirty_token { continue; }
 
-            self.global.set(v, Some(real));
-            self.dirty_global.set(v, self.dirty_token);
+            let global_src = self.global.get(src).unwrap().unwrap();
+            let global_dst: GlobalView<R> = portals.step_offset(global_src, dst - src);
 
-            self.enqueue_prio(v, vec2(0, -1));
-            self.enqueue_prio(v, vec2(0, 1));
-            self.enqueue_prio(v, vec2(-1, 0));
-            self.enqueue_prio(v, vec2(1, 0));
-            self.enqueue(v, vec2(-1, -1));
-            self.enqueue(v, vec2(-1, 1));
-            self.enqueue(v, vec2(1, -1));
-            self.enqueue(v, vec2(1, 1));
+            self.global.set(dst, Some(global_dst));
+            self.dirty_global.set(dst, self.dirty_token);
+
+            if blocked(global_dst) { continue; }
+
+            self.enqueue(cost - 1, dst, vec2(0, -1));
+            self.enqueue(cost - 1, dst, vec2(0, 1));
+            self.enqueue(cost - 1, dst, vec2(-1, 0));
+            self.enqueue(cost - 1, dst, vec2(1, 0));
+            self.enqueue(cost - 4, dst, vec2(-1, -1));
+            self.enqueue(cost - 4, dst, vec2(-1, 1));
+            self.enqueue(cost - 4, dst, vec2(1, -1));
+            self.enqueue(cost - 4, dst, vec2(1, 1));
         }
     }
 
-    fn enqueue_prio(&mut self, v: EgoPoint, offset: EgoVec) {
-        let v2 = v + offset;
-        if !self.global.contains(v2) { return; }
+    fn enqueue(&mut self, cost: isize, src: EgoPoint, offset: EgoVec) {
+        let dst = src + offset;
+        if !self.global.contains(dst) { return; }
+        if self.dirty_global.get(dst) == Some(&self.dirty_token) { return }
 
-        self.basis.set(v2, Some(v));
-        self.dirty_basis.set(v2, self.dirty_token);
-        self.explore.push_back(v2)
-    }
-
-    fn enqueue(&mut self, v: EgoPoint, offset: EgoVec) {
-        let v2 = v + offset;
-        if !self.global.contains(v2) { return; }
-
-        if self.dirty_basis.get(v2) != Some(&self.dirty_token) {
-            self.basis.set(v2, Some(v));
-            self.dirty_basis.set(v2, self.dirty_token);
-            self.explore.push_back(v2)
-        }
+        self.explore.push((cost, (dst.x, dst.y), (src.x, src.y)))
     }
 
     fn calculate_fov(&mut self, viewport: Viewport<R>, blocked: impl Fn(GlobalView<R>) -> bool) {  
@@ -139,7 +125,7 @@ impl<R: IdLike> Egosphere<R> {
     fn at_fullbright(&self, v: EgoPoint) -> Option<GlobalView<R>> {
         // ignore FOV
         if let Some(Some(p)) = self.global.get(v) {
-            if let Some(&tok) = self.dirty_basis.get(v) {
+            if let Some(&tok) = self.dirty_global.get(v) {
                 if tok == self.dirty_token {
                     return Some(*p);
                 }
