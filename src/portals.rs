@@ -115,37 +115,52 @@ impl<R: IdLike> Portals<R> {
         }
     }
 
-    pub fn step_offset(&self, src: GlobalView<R>, ego: EgoVec) -> GlobalView<R> {
+    pub fn step_offset(&self, src: GlobalView<R>, ego: EgoVec) -> (bool, GlobalView<R>) {
         assert!((-1..=1).contains(&ego.x));
         assert!((-1..=1).contains(&ego.y));
 
         if ego.x == 0 && ego.y == 0 {
-            return src;
+            return (false, src);
         }
 
-        if ego.x != 0 && ego.y != 0 {
-            // don't ever use portals
-            return GlobalView { 
-                r: src.r,
-                x: src.x + src.c.rotate_vec(ego).cast_unit(),
-                c: src.c,
-            }
-        }
+        match (ego.x, ego.y) {
+            (0, -1) => self.step_directional(src, Egocentric::Forward),
+            (1, 0) => self.step_directional(src, Egocentric::Right),
+            (0, 1) => self.step_directional(src, Egocentric::Backward),
+            (-1, 0) => self.step_directional(src, Egocentric::Left),
 
-        self.step_directional(src, match (ego.x, ego.y) {
-            (0, -1) => Egocentric::Forward,
-            (1, 0) => Egocentric::Right,
-            (0, 1) => Egocentric::Backward,
-            (-1, 0) => Egocentric::Left,
+            (-1, -1) => self.step_directional_2(src, Egocentric::Forward, Egocentric::Left),
+            (1, -1) => self.step_directional_2(src, Egocentric::Forward, Egocentric::Right),
+            (-1, 1) => self.step_directional_2(src, Egocentric::Backward, Egocentric::Left),
+            (1, 1) => self.step_directional_2(src, Egocentric::Backward, Egocentric::Right),
             _ => unreachable!(),
-        })
+        }
     }
 
-    pub fn step_directional(&self, src: GlobalView<R>, ego: Egocentric) -> GlobalView<R> {
-        self.step_forward(src.rotated(ego)).rotated(ego.undo())
+    pub fn step_directional(&self, src: GlobalView<R>, ego: Egocentric) -> (bool, GlobalView<R>) {
+        let (portal, v2) = self.step_forward(src.rotated(ego));
+        (portal, v2.rotated(ego.undo()))
     }
 
-    pub fn step_forward(&self, src: GlobalView<R>) -> GlobalView<R> {
+    pub fn step_directional_2(&self, src: GlobalView<R>, step1: Egocentric, step2: Egocentric) -> (bool, GlobalView<R>) {
+        // maximize number of portals stepped through
+        let (portal1_1, mid1) = self.step_directional(src, step1);
+        let (portal2_1, out1) = self.step_directional(mid1, step2);
+
+        let (portal1_2, mid2) = self.step_directional(src, step2);
+        let (portal2_2, out2) = self.step_directional(mid2, step1);
+
+        let psum_1 = (if portal1_1 { 1 } else { 0 }) + (if portal2_1 { 1 } else { 0 });
+        let psum_2 = (if portal1_2 { 1 } else { 0 }) + (if portal2_2 { 1 } else { 0 });
+
+        if psum_1 >= psum_2 {
+            return (psum_1 > 0, out1)
+        } else {
+            return (psum_2 > 0, out2)
+        }
+    }
+
+    pub fn step_forward(&self, src: GlobalView<R>) -> (bool, GlobalView<R>) {
         let dst_normal = GlobalView { 
             r: src.r,
             x: src.x + src.c.offset(),
@@ -153,9 +168,9 @@ impl<R: IdLike> Portals<R> {
         };
 
         if let Some(trap) = self.traps.fwd().get(dst_normal) {
-            trap
+            (true, trap)
         } else {
-            dst_normal
+            (false, dst_normal)
         }
     }
 }

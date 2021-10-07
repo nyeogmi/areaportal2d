@@ -65,7 +65,7 @@ impl<R: IdLike> Egosphere<R> {
             if self.dirty_global.get(dst).unwrap() == &self.dirty_token { continue; }
 
             let global_src = self.global.get(src).unwrap().unwrap();
-            let global_dst: GlobalView<R> = portals.step_offset(global_src, dst - src);
+            let global_dst: GlobalView<R> = portals.step_offset(global_src, dst - src).1;
 
             self.global.set(dst, Some(global_dst));
             self.dirty_global.set(dst, self.dirty_token);
