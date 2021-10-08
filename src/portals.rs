@@ -107,8 +107,6 @@ impl<R: IdLike> Portals<R> {
             let src = GlobalView { r: ap.src.r, x: src_xy, c: src_fwd };
             let dst = GlobalView { r: ap.dst.r, x: dst_xy, c: dst_fwd };
 
-            // println!("trapping: {:?}x{:?} => {:?}x{:?}", src_xy, src_fwd, dst_xy, dst_fwd);
-
             self.traps.mut_fwd().insert(src, dst);
             self.owner.mut_fwd().insert(src, ap);
             self.owner.mut_fwd().insert(dst, ap);

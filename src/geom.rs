@@ -76,13 +76,13 @@ impl<R: IdLike> IdLike for GlobalPoint<R> {
 
 impl<R: IdLike> PartialOrd for GlobalPoint<R> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some( (self.r, self.x.x, self.x.y).cmp(&(other.r, other.x.y, other.x.y)) )
+        Some( (self.r, self.x.x, self.x.y).cmp(&(other.r, other.x.x, other.x.y)) )
     }
 }
 
 impl<R: IdLike> Ord for GlobalPoint<R> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-       (self.r, self.x.x, self.x.y).cmp(&(other.r, other.x.y, other.x.y))
+       (self.r, self.x.x, self.x.y).cmp(&(other.r, other.x.x, other.x.y))
     }
 }
 
