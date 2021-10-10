@@ -14,6 +14,6 @@ edition = "2018"
 
 [dependencies]
 gridd-euclid = "0.1.0"
-moogle = "0.4.3"
+moogle = "0.4.4"
 euclid = "0.22"
 symmetric-shadowcasting = "0.2.0"
